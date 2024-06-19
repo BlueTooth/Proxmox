@@ -134,11 +134,11 @@ function default_settings() {
   FORMAT=",efitype=4m"
   MACHINE=""
   DISK_CACHE=""
-  HN="ubuntu"
-  CPU_TYPE=""
+  HN="04-node-ltemplate"
+  CPU_TYPE=" -cpu host"
   CORE_COUNT="2"
   RAM_SIZE="2048"
-  BRG="vmbr0"
+  BRG="vmbr1"
   MAC="$GEN_MAC"
   VLAN=""
   MTU=""
@@ -378,6 +378,10 @@ echo -en "\e[1A\e[0K"
 FILE=$(basename $URL)
 msg_ok "Downloaded ${CL}${BL}${FILE}${CL}"
 
+#sudo apt install libguestfs-tools -y
+virt-customize -a $FILE --install qemu-guest-agent
+qemu-img resize $FILE 20G
+
 STORAGE_TYPE=$(pvesm status -storage $STORAGE | awk 'NR>1 {print $2}')
 case $STORAGE_TYPE in
 nfs | dir)
@@ -402,12 +406,12 @@ done
 
 msg_info "Creating a Ubuntu 24.04 VM"
 qm create $VMID -agent 1${MACHINE} -tablet 0 -localtime 1 -bios ovmf${CPU_TYPE} -cores $CORE_COUNT -memory $RAM_SIZE \
-  -name $HN -tags proxmox-helper-scripts -net0 virtio,bridge=$BRG,macaddr=$MAC$VLAN$MTU -onboot 1 -ostype l26 -scsihw virtio-scsi-pci
+  -name $HN -tags ci-04-node,ubuntu -net0 virtio,bridge=$BRG,macaddr=$MAC$VLAN$MTU -onboot 1 -ostype l26 -scsihw virtio-scsi-pci
 pvesm alloc $STORAGE $VMID $DISK0 4M 1>&/dev/null
 qm importdisk $VMID ${FILE} $STORAGE ${DISK_IMPORT:-} 1>&/dev/null
 qm set $VMID \
   -efidisk0 ${DISK0_REF}${FORMAT} \
-  -scsi0 ${DISK1_REF},${DISK_CACHE}${THIN}size=2G \
+  -scsi0 ${DISK1_REF},${DISK_CACHE}${THIN}size=20G \
   -ide2 ${STORAGE}:cloudinit \
   -boot order=scsi0 \
   -serial0 socket \

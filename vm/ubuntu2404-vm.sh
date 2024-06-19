@@ -379,7 +379,7 @@ FILE=$(basename $URL)
 msg_ok "Downloaded ${CL}${BL}${FILE}${CL}"
 
 #sudo apt install libguestfs-tools -y
-virt-customize -a $FILE --install qemu-guest-agent
+virt-customize -a $FILE --install qemu-guest-agent --run-command 'echo PermitRootLogin yes >> /etc/ssh/sshd_config'
 qemu-img resize $FILE 20G
 
 STORAGE_TYPE=$(pvesm status -storage $STORAGE | awk 'NR>1 {print $2}')

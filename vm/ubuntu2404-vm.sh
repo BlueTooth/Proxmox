@@ -17,7 +17,7 @@ function header_info {
 EOF
   echo -n "  "
   for i in {1..76}; do echo -en "\033[48;5;172m "; done
-  echo -e '\033[0m'
+  echo -e '\033[0m\n'
 }
 header_info
 echo -e "\n Loading..."
@@ -217,7 +217,7 @@ function advanced_settings() {
     if [ -z $DISK_SIZE ]; then
       DISK_SIZE="20G"
     else
-      DISK_SIZE=$(echo ${DISK_SIZE,,} | tr -d ' ')
+      DISK_SIZE=$(echo ${DISK_SIZE} | tr -d ' ')
     fi
     echo -e "${DGN}Using Disk Size: ${BGN}$DISK_SIZE${CL}"
   else

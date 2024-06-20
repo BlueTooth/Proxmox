@@ -1,20 +1,23 @@
 #!/usr/bin/env bash
 
-# Copyright (c) 2021-2024 tteck
-# Author: tteck (tteckster)
+# Copyright (c) 2024 bluetooth
+# Author: bluetooth
 # License: MIT
-# https://github.com/tteck/Proxmox/raw/main/LICENSE
 
 function header_info {
   clear
   cat <<"EOF"
-   __  ____                __           ___  __ __   ____  __ __     _    ____  ___
-  / / / / /_  __  ______  / /___  __   |__ \/ // /  / __ \/ // /    | |  / /  |/  /
- / / / / __ \/ / / / __ \/ __/ / / /   __/ / // /_ / / / / // /_    | | / / /|_/ /
-/ /_/ / /_/ / /_/ / / / / /_/ /_/ /   / __/__  __// /_/ /__  __/    | |/ / /  / /
-\____/_.___/\__,_/_/ /_/\__/\__,_/   /____/ /_/ (_)____/  /_/       |___/_/  /_/
+   _  __ _        _                  _     ___     ____        _
+  | |/ /(_)      | |                | |   / _ \   |  _ \      | |
+  | ' / __   ___ | |__   ___    ___ | | __\ \'-'_ | |_) |___  | |_   ___  _ _
+  |  < |  | / _ \| '_ \ |__ \  / __|| |/ //  \/ / |  __// _ \[   _| / _ \| '_|
+  | . \ | ||  __/| |_) |/ _  || (__ |   <| (\  <_ | |  |  __/ | |_ |  __/| |
+  |_|\_\|_| \___||_.__/ \__,_| \___||_|\_\\__/\__||_|   \___|  \__| \___||_|
 
 EOF
+  echo -n "  "
+  for i in {1..76}; do echo -en "\033[48;5;172m "; done
+  echo -e '\033[0m'
 }
 header_info
 echo -e "\n Loading..."
@@ -60,7 +63,7 @@ function cleanup() {
 
 TEMP_DIR=$(mktemp -d)
 pushd $TEMP_DIR >/dev/null
-if whiptail --backtitle "Proxmox VE Helper Scripts" --title "Ubuntu 24.04 VM" --yesno "This will create a New Ubuntu 24.04 VM. Proceed?" 10 58; then
+if whiptail --backtitle "KuP template create" --title "Ubuntu 24.04 VM" --yesno "This will create a New Ubuntu 24.04 VM. Proceed?" 10 58; then
   :
 else
   header_info && echo -e "⚠ User exited script \n" && exit
@@ -134,6 +137,7 @@ function default_settings() {
   FORMAT=",efitype=4m"
   MACHINE=""
   DISK_CACHE=""
+  DISK_SIZE="20G"
   HN="04-node-ltemplate"
   CPU_TYPE=" -cpu host"
   CORE_COUNT="2"
@@ -146,8 +150,9 @@ function default_settings() {
   echo -e "${DGN}Using Virtual Machine ID: ${BGN}${VMID}${CL}"
   echo -e "${DGN}Using Machine Type: ${BGN}i440fx${CL}"
   echo -e "${DGN}Using Disk Cache: ${BGN}None${CL}"
+  echo -e "${DGN}Using Disk Size: ${BGN}${DISK_SIZE}${CL}"
   echo -e "${DGN}Using Hostname: ${BGN}${HN}${CL}"
-  echo -e "${DGN}Using CPU Model: ${BGN}KVM64${CL}"
+  echo -e "${DGN}Using CPU Model: ${BGN}HOST${CL}"
   echo -e "${DGN}Allocated Cores: ${BGN}${CORE_COUNT}${CL}"
   echo -e "${DGN}Allocated RAM: ${BGN}${RAM_SIZE}${CL}"
   echo -e "${DGN}Using Bridge: ${BGN}${BRG}${CL}"
@@ -204,6 +209,17 @@ function advanced_settings() {
       echo -e "${DGN}Using Disk Cache: ${BGN}None${CL}"
       DISK_CACHE=""
     fi
+  else
+    exit-script
+  fi
+
+  if DISK_SIZE=$(whiptail --backtitle "Proxmox VE Helper Scripts" --inputbox "Set Disk Size" 8 58 20G --title "SIZE" --cancel-button Exit-Script 3>&1 1>&2 2>&3); then
+    if [ -z $DISK_SIZE ]; then
+      DISK_SIZE="20G"
+    else
+      DISK_SIZE=$(echo ${DISK_SIZE,,} | tr -d ' ')
+    fi
+    echo -e "${DGN}Using Disk Size: ${BGN}$DISK_SIZE${CL}"
   else
     exit-script
   fi
@@ -378,9 +394,14 @@ echo -en "\e[1A\e[0K"
 FILE=$(basename $URL)
 msg_ok "Downloaded ${CL}${BL}${FILE}${CL}"
 
+msg_info "Config Image"
 #sudo apt install libguestfs-tools -y
 virt-customize -a $FILE --install qemu-guest-agent --run-command "sed -i -e 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/g' -e 's/^PasswordAuthentication.*/PasswordAuthentication yes/' /etc/ssh/sshd_config && rm /etc/ssh/sshd_config.d/60-cloudimg-settings.conf && sed -i 's/XKBLAYOUT=\"\\w*\"/XKBLAYOUT=\\\"'de'\\\"/g' /etc/default/keyboard"
-qemu-img resize $FILE 20G
+msg_ok "Image is configured."
+
+msg_info "Resize Image"
+qemu-img resize $FILE $DISK_SIZE
+msg_ok "Image resized to ${CL}${BL}${DISK_SIZE}${CL}"
 
 STORAGE_TYPE=$(pvesm status -storage $STORAGE | awk 'NR>1 {print $2}')
 case $STORAGE_TYPE in
@@ -411,16 +432,13 @@ pvesm alloc $STORAGE $VMID $DISK0 4M 1>&/dev/null
 qm importdisk $VMID ${FILE} $STORAGE ${DISK_IMPORT:-} 1>&/dev/null
 qm set $VMID \
   -efidisk0 ${DISK0_REF}${FORMAT} \
-  -scsi0 ${DISK1_REF},${DISK_CACHE}${THIN}size=20G \
+  -scsi0 ${DISK1_REF},${DISK_CACHE}${THIN}size=${DISK_SIZE} \
   -ide2 ${STORAGE}:cloudinit \
   -boot order=scsi0 \
   -serial0 socket \
-  -description "<div align='center'><a href='https://Helper-Scripts.com'><img src='https://raw.githubusercontent.com/tteck/Proxmox/main/misc/images/logo-81x112.png'/></a>
-
-  # Ubuntu 24.04 VM
-
-  <a href='https://ko-fi.com/D1D7EP4GF'><img src='https://img.shields.io/badge/&#x2615;-Buy me a coffee-blue' /></a>
-  </div>" >/dev/null
+  -description "# Ubuntu: ${HN}
+  * User: root
+  * Password: peter" >/dev/null
 msg_ok "Created a Ubuntu 24.04 VM ${CL}${BL}(${HN})"
 if [ "$START_VM" == "yes" ]; then
   msg_info "Starting Ubuntu 24.04 VM"

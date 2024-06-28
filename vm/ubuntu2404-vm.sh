@@ -396,7 +396,13 @@ msg_ok "Downloaded ${CL}${BL}${FILE}${CL}"
 
 msg_info "Config Image"
 #sudo apt install libguestfs-tools -y
-virt-customize -a $FILE --install qemu-guest-agent --run-command "sed -i -e 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/g' -e 's/^PasswordAuthentication.*/PasswordAuthentication yes/' /etc/ssh/sshd_config && rm /etc/ssh/sshd_config.d/60-cloudimg-settings.conf && sed -i 's/XKBLAYOUT=\"\\w*\"/XKBLAYOUT=\\\"'de'\\\"/g' /etc/default/keyboard"
+virt-customize -a $FILE --install qemu-guest-agent --run-command "\
+sed -i -e 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/g' -e 's/^PasswordAuthentication.*/PasswordAuthentication yes/' /etc/ssh/sshd_config && \
+rm /etc/ssh/sshd_config.d/60-cloudimg-settings.conf && \
+sed -i 's/XKBLAYOUT=\"\\w*\"/XKBLAYOUT=\\\"'de'\\\"/g' /etc/default/keyboard \
+echo -n >/etc/machine-id && \
+rm /var/lib/dbus/machine-id && \
+ln -s /etc/machine-id /var/lib/dbus/machine-id"
 msg_ok "Image is configured."
 
 msg_info "Resize Image"

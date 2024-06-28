@@ -401,7 +401,7 @@ sed -i -e 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/g' -e 's/^Pa
 rm /etc/ssh/sshd_config.d/60-cloudimg-settings.conf && \
 sed -i 's/XKBLAYOUT=\"\\w*\"/XKBLAYOUT=\\\"'de'\\\"/g' /etc/default/keyboard && \
 echo -n >/etc/machine-id && \
-rm /var/lib/dbus/machine-id && \
+rm -rf /var/lib/dbus/machine-id && \
 ln -s /etc/machine-id /var/lib/dbus/machine-id"
 msg_ok "Image is configured."
 
